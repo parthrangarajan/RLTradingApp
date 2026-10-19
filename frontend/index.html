@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reinforcement Learning Trading Simulator | Parth Rangarajan</title>
+  <link rel="icon" type="image/x-icon" href="/ui/favicon.ico">
+  <link rel="stylesheet" href="/ui/style.css?v=4">
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header class="site-header">
+    <div class="brand">
+      <a href="/ui/" aria-label="Reinforcement Learning Trading Simulator home">
+        <img src="/ui/assets/rl-logo.png" alt="Reinforcement Learning Trading Simulator logo" class="logo">
+      </a>
+      <!-- <div class="program-line">
+        <div>Master of Financial Insurance</div>
+        <div class="muted-line">Statistical Sciences · University of Toronto</div>
+      </div> -->
+      <nav class="header-links">
+        <a href="https://parthrangarajan.github.io/" target="_blank" rel="noopener">Website</a>
+        <a href="https://www.linkedin.com/in/parthrangarajan/" target="_blank" rel="noopener">LinkedIn</a>
+      </nav>
+    </div>
+  </header>
+  <div class="navy-bar" aria-hidden="true"></div>
+
+  <main class="container">
+
+    <!-- ============ INTRO ============ -->
+    <section class="card intro">
+      <h1>Reinforcement Learning Trading Simulator</h1>
+      <p>
+        Pick a stock, train a reinforcement learning agent that can buy, sell short, or stay in cash,
+        then test it on a period it never saw while learning. Its results are compared with
+        simple strategies so you can judge whether it adds any value.
+      </p>
+      <p id="api-indicator" class="api-indicator">Checking the connection to the server...</p>
+      <div id="global-status" class="status hidden" role="status"></div>
+    </section>
+
+    <!-- ============ STEP 1: DATA ============ -->
+    <section class="card" id="step-data">
+      <h2><span class="step">1</span>Load market data</h2>
+      <p class="muted">
+        Choose one option. Option A downloads daily prices for any stock from Yahoo Finance.
+        Option B uses a CSV file you downloaded yourself, for example from MarketWatch.
+      </p>
+
+      <div class="grid-2">
+        <form id="ticker-form" class="stack">
+          <h3>Option A: fetch by ticker</h3>
+          <label class="field" data-field="ticker">
+            <span class="field-title"></span>
+            <input type="text" id="ticker" maxlength="15" required>
+            <small class="field-help"></small>
+          </label>
+          <div class="grid-2 tight">
+            <label class="field" data-field="start_date">
+              <span class="field-title"></span>
+              <input type="date" id="ticker-start" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="end_date">
+              <span class="field-title"></span>
+              <input type="date" id="ticker-end" required>
+              <small class="field-help"></small>
+            </label>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary">Fetch prices</button>
+          </div>
+        </form>
+
+        <form id="upload-form" class="stack">
+          <h3>Option B: upload a CSV file</h3>
+          <label class="field">
+            <span>CSV file with Date, Open, High, Low, Close, Volume</span>
+            <input type="file" id="csv-file" accept=".csv,text/csv">
+            <small>The columns must be named exactly as shown. Prices are read from the Close column.</small>
+          </label>
+          <div>
+            <button type="submit" class="btn btn-primary">Upload CSV</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="dataset-summary" class="hidden"></div>
+    </section>
+
+    <!-- ============ STEP 2: CONFIGURE ============ -->
+    <section class="card" id="step-config">
+      <h2><span class="step">2</span>Configure the run</h2>
+      <p class="muted">
+        Every field already holds a sensible default, so you can start straight away.
+        Hover over any underlined label, or read the grey text under it, to learn what it means.
+        Change anything you like before you start.
+      </p>
+
+      <form id="run-form">
+
+        <fieldset>
+          <legend>Dates: what the agent learns from, and what it is judged on</legend>
+          <div class="grid-4">
+            <label class="field" data-field="train_start">
+              <span class="field-title"></span>
+              <input type="date" name="train_start" value="2020-01-02" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="train_end">
+              <span class="field-title"></span>
+              <input type="date" name="train_end" value="2020-10-30" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="test_start">
+              <span class="field-title"></span>
+              <input type="date" name="test_start" value="2020-11-02" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="test_end">
+              <span class="field-title"></span>
+              <input type="date" name="test_end" value="2021-03-12" required>
+              <small class="field-help"></small>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Money and position size</legend>
+          <div class="grid-3">
+            <label class="field" data-field="starting_capital">
+              <span class="field-title"></span>
+              <input type="number" name="starting_capital" value="10000" min="1" step="any" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="max_fraction_per_trade">
+              <span class="field-title"></span>
+              <input type="number" name="max_fraction_per_trade" value="0.25" min="0.01" max="1" step="0.01" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="max_shares_per_trade">
+              <span class="field-title"></span>
+              <input type="number" name="max_shares_per_trade" value="500" min="1" step="1" required>
+              <small class="field-help"></small>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Trading costs and how the agent learns</legend>
+          <div class="grid-3">
+            <label class="field" data-field="fee_rate">
+              <span class="field-title"></span>
+              <input type="number" name="fee_rate" value="0.001" min="0" max="0.05" step="0.0001" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="window_size">
+              <span class="field-title"></span>
+              <input type="number" name="window_size" value="10" min="2" max="60" step="1" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="training_steps">
+              <span class="field-title"></span>
+              <input type="number" name="training_steps" value="100000" min="1000" max="2000000" step="1000" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="learning_rate">
+              <span class="field-title"></span>
+              <input type="number" name="learning_rate" value="0.0007" min="0.00001" max="0.1" step="0.00001" required>
+              <small class="field-help"></small>
+            </label>
+            <label class="field" data-field="seed">
+              <span class="field-title"></span>
+              <input type="number" name="seed" value="42" step="1" required>
+              <small class="field-help"></small>
+            </label>
+            <div class="field checkbox-wrap" data-field="allow_short">
+              <label class="checkbox-row">
+                <input type="checkbox" name="allow_short" checked>
+                <span class="field-title"></span>
+              </label>
+              <small class="field-help"></small>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Start training and testing</button>
+          <button type="button" id="reset-defaults" class="btn btn-ghost">Reset to defaults</button>
+        </div>
+        <div id="config-error" class="status error hidden" role="alert"></div>
+      </form>
+    </section>
+
+    <!-- ============ STEP 3: PROGRESS ============ -->
+    <section class="card hidden" id="step-progress">
+      <h2><span class="step">3</span>Progress</h2>
+      <div class="progress-head">
+        <span id="progress-status" class="badge">queued</span>
+        <span id="progress-pct" class="mono">0%</span>
+      </div>
+      <div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
+      <p id="progress-text" class="muted"></p>
+      <p class="muted small">
+        Training runs on the server. This page checks progress every two seconds.
+        Training with 100,000 steps can take several minutes on a normal computer.
+      </p>
+      <details id="error-details" class="hidden">
+        <summary>Error details</summary>
+        <pre id="error-trace"></pre>
+      </details>
+    </section>
+
+    <!-- ============ STEP 4: RESULTS ============ -->
+    <section class="card hidden" id="step-results">
+      <h2><span class="step">4</span>Results</h2>
+
+      <p id="verdict" class="verdict"></p>
+
+      <h3>Interactive chart</h3>
+      <p class="muted small">
+        Hover over the price line to see your position and profit or loss on that day.
+        Hover over a green or red triangle to see the details of that trade.
+        Click a point on the price line to jump to that day in the day explorer below.
+        Drag across the chart to zoom, and use the 1M, 3M, and All buttons to change the range.
+      </p>
+      <div id="chart" class="chart"></div>
+      <p class="legend-help small">
+        <span class="swatch long"></span>Green shading: you owned shares (long).
+        <span class="swatch short"></span>Red shading: you owed borrowed shares (short).
+        No shading: you held only cash (flat).
+        Green up triangles: buys. Red down triangles: sells.
+      </p>
+
+      <h3>Day explorer</h3>
+      <p class="muted small">
+        Drag the slider, click the price line, or click a row in the trade log to see the account on that day.
+      </p>
+      <input type="range" id="day-slider" min="0" max="0" value="0" aria-label="Choose a day">
+      <p id="day-label" class="day-label"></p>
+      <div id="day-card" class="kpis"></div>
+      <p id="day-sentence" class="verdict"></p>
+
+      <h3>Strategy comparison</h3>
+      <p class="muted small">
+        Hover over a column name to read what it means. The best value in each column is shown in bold.
+      </p>
+      <div class="table-wrap"><table id="metrics-table"></table></div>
+
+      <h3>Trade log</h3>
+      <p class="muted small">Every change in position, explained in plain English. Click a row to jump to that day.</p>
+      <div class="table-wrap"><table id="trade-table"></table></div>
+
+      <div class="actions">
+        <button id="download-json" type="button" class="btn btn-primary">Download result as JSON</button>
+        <a id="download-chart" class="btn btn-ghost" download="chart.png" href="#">Download chart image</a>
+      </div>
+    </section>
+
+    <!-- ============ GLOSSARY ============ -->
+    <!-- <section class="card">
+      <h2>Glossary: what every term means</h2>
+      <p class="muted small">Each term is explained here, in plain English, and in the tooltips throughout the page.</p>
+      <dl id="glossary" class="glossary"></dl>
+    </section> -->
+
+    <!-- ============ HISTORY ============ -->
+    <section class="card">
+      <h2>Recent runs</h2>
+      <p class="muted small">Runs you started in this browser. Results stay available until the server restarts.</p>
+      <ul id="history-list" class="history"></ul>
+    </section>
+
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="footer-logo-wrap">
+          <img src="/ui/assets/rl-logo.png" alt="Reinforcement Learning Trading Simulator logo" class="footer-logo">
+        </div>
+        <div>
+          <strong>Parth Rangarajan</strong><br>
+          Master of Financial Insurance, Statistical Sciences, University of Toronto
+        </div>
+      </div>
+      <nav class="footer-links">
+        <a href="https://parthrangarajan.github.io/" target="_blank" rel="noopener">Website</a>
+        <a href="https://www.linkedin.com/in/parthrangarajan/" target="_blank" rel="noopener">LinkedIn</a>
+      </nav>
+    </div>
+    <p class="disclaimer">
+      Educational project. Not investment advice. Simulated past performance does not predict future results.
+    </p>
+  </footer>
+
+  <!-- Plotly draws the interactive chart. It must load before app.js. -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="config.js"></script>
+  <script src="/ui/app.js?v=4"></script>
+</body>
+</html>
